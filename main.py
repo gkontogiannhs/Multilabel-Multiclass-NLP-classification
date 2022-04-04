@@ -1,6 +1,7 @@
 # Convert encoded data to text
 # make Bag of Words (BoW)
 import re
+from xml.dom.minidom import Document
 
 """
 train_x = ['Hello there', 'How are you today?']
@@ -50,7 +51,7 @@ def read_data(fname):
 """
 
 def read_file(filename):
-    arr = []   
+    arr = []
 
     try:
         with open(filename, 'r') as file:
@@ -66,28 +67,27 @@ def read_data(fn1 , fn2):
 
     vocabulary = read_file('Data/vocabs.txt')
     # labels = read_file('Data/labels.txt')
+    arr = []
 
     try:
         with open(fn1) as fd, open(fn2) as fl:
-            line_d = fd.readline()
-            # line_l = fl.readline()
-            text = line_d.split(' ')
-            print(text)
-            lengths = re.findall('<(.*?)>', line_d)
-            print(lengths)
-            k = 2
-            index = 1
             arr = []
-            sents = int(lengths[0])
-            sentence = ''
-            for i in range(sents-1):
-                l = int(lengths[index]) + 1
-                for j in range(k, l):
-                    sentence += vocabulary[int(text[j])]
-                index += 1
-                k = l + 2
-                arr.append(sentence)
-            return arr
+            words = []
+            doc = []
+            line_d = fd.readline().strip('\n')
+            # line_l = fl.readline()      
+            temp = line_d.split(' ')
+            temp.pop(0)
+    
+            for char in temp:
+                m = re.findall('<(.*?)>', char)
+                if not m:
+                    words.append(vocabulary[int(char)])
+                else:
+                    doc.append(' '.join(words))
+                    words.clear()
+            return arr.append(doc)
+                    
     except FileNotFoundError:
         raise "Count not read file"
 
