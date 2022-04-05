@@ -11,42 +11,6 @@ x = vectorizer.transform(train_x)
 print(vectorizer.get_feature_names_out())
 print(x.toarray())
 
-def read_data(fname):
-
-    row = []
-    column = []
-    data = []
-    bags = dict()
-    fp = open(fname)
-    d = 0
-    while True:
-        ln = fp.readline()
-        if len(ln)==0:
-            break
-        ln_split = ln.split(',')
-        wrds = re.findall(r',([0-9\.]*):[0-9\.]*', ln)
-        cnts = re.findall(r',[0-9\.]*:([0-9\.]*)', ln)
-
-        for i,wrd in enumerate(wrds):
-            row.append(d)
-            column.append(int(wrd)-1)
-            data.append(float(cnts[i]))
-
-        doc = int(ln_split[1].lstrip('d'))
-        try:
-            bags[doc].append(d)
-        except KeyError:
-            bags.update({doc:[d]})
-
-        d += 1
-        if d >= 20:
-            break
-
-    fp.close()
-
-    # X = csr_matrix((np.array(data), (np.array(row), np.array(column))), shape=(len(set(row)),N))
-
-    return bags
 """
 
 def read_file(filename):
@@ -62,38 +26,63 @@ def read_file(filename):
         
     return arr
 
-def read_data(fn1 , fn2):
+def read_data(fn1 , fn2, samples):
 
     vocabulary = read_file('Data/vocabs.txt')
-    # labels = read_file('Data/labels.txt')
-    arr = []
-
+    labels = read_file('Data/labels.txt')
+    
     try:
         with open(fn1) as fd, open(fn2) as fl:
-            arr = []
+            X = []
+            y = []
             words = []
             doc = []
-            line_d = fd.readline().strip('\n')
-            # line_l = fl.readline()      
-            temp = line_d.split(' ')
-            temp.pop(0)
-    
-            for char in temp:
-                m = re.findall('<(.*?)>', char)
-                if not m:
-                    words.append(vocabulary[int(char)])
-                else:
-                    doc.append(' '.join(words))
-                    words.clear()
-            return arr.append(doc)
+            cnt = 0
+
+            while True:
+                # get each line from the files
+                data_line = fd.readline().strip('\n')
+                label_line = fl.readline().strip('\n') 
+
+                # check if EOF
+                if len(data_line) == 0:
+                    return X, y
+
+                # convert to list and throw 2 first elem
+                temp = data_line.split(' ')[2:]
+
+                # convert to list and search for '1s' indexes
+                ones = label_line.split(' ')
+                indices = [i for i in range(len(ones)) if ones[i] == '1']
+               
+                # get labels for every document
+                y.append([labels[index] for index in indices])
+
+                # get every word to create sentece
+                # The total of sentences create a document
+                for char in temp:
+                    m = re.findall('<(.*?)>', char)
+                    if not m:
+                        words.append(vocabulary[int(char)])
+                    else:
+                        doc.append(' '.join(words))
+                        words.clear()
+
+                # append document
+                X.append(doc)
+                doc = []
+               
+                cnt += 1
+                if cnt >= samples:
+                    return X, y
                     
     except FileNotFoundError:
         raise "Count not read file"
 
 
 def main():
-
-    v = read_data('Data/test-data.dat', 'Data/test-label.dat')
-    print(v)
+    X, y = read_data('Data/test-data.dat', 'Data/test-label.dat', 10)
+    print(X, y)
+    print(len(X), len(y))
 
 main()
