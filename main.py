@@ -1,7 +1,6 @@
 # Convert encoded data to text
 # make Bag of Words (BoW)
 import re
-from xml.dom.minidom import Document
 
 """
 train_x = ['Hello there', 'How are you today?']
