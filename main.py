@@ -1,17 +1,8 @@
 # Convert encoded data to text
 # make Bag of Words (BoW)
 import re
-
-"""
-train_x = ['Hello there', 'How are you today?']
-
-vectorizer = CountVectorizer()
-x = vectorizer.fit(train_x)
-x = vectorizer.transform(train_x)
-print(vectorizer.get_feature_names_out())
-print(x.toarray())
-
-"""
+from sklearn.feature_extraction.text import CountVectorizer
+import pandas as pd
 
 def read_file(filename):
     arr = []
@@ -26,9 +17,8 @@ def read_file(filename):
         
     return arr
 
-def read_data(fn1 , fn2, samples):
+def read_data(fn1 , fn2, docs=None):
 
-    vocabulary = read_file('Data/vocabs.txt')
     labels = read_file('Data/labels.txt')
     
     try:
@@ -36,10 +26,14 @@ def read_data(fn1 , fn2, samples):
             X = []
             y = []
             words = []
-            doc = []
             cnt = 0
 
+            # safe mode
+            if docs is None:
+                docs = 10
+
             while True:
+
                 # get each line from the files
                 data_line = fd.readline().strip('\n')
                 label_line = fl.readline().strip('\n') 
@@ -49,7 +43,7 @@ def read_data(fn1 , fn2, samples):
                     return X, y
 
                 # convert to list and throw 2 first elem
-                temp = data_line.split(' ')[2:]
+                temp = data_line.split(' ')
 
                 # convert to list and search for '1s' indexes
                 ones = label_line.split(' ')
@@ -61,19 +55,16 @@ def read_data(fn1 , fn2, samples):
                 # get every word to create sentece
                 # The total of sentences create a document
                 for char in temp:
-                    m = re.findall('<(.*?)>', char)
-                    if not m:
-                        words.append(vocabulary[int(char)])
-                    else:
-                        doc.append(' '.join(words))
-                        words.clear()
+                    if not re.findall('<(.*?)>', char):
+                        words.append(char)
 
                 # append document
-                X.append(doc)
-                doc = []
-               
+                X.append(' '.join(words))
+
+                words.clear()
+
                 cnt += 1
-                if cnt >= samples:
+                if cnt >= docs:
                     return X, y
                     
     except FileNotFoundError:
@@ -81,8 +72,15 @@ def read_data(fn1 , fn2, samples):
 
 
 def main():
+
     X, y = read_data('Data/test-data.dat', 'Data/test-label.dat', 10)
-    print(X, y)
-    print(len(X), len(y))
+    voc = [str(i) for i in range(8520)]
+
+    # create vectorizer and pass existed corpus
+    vectorizer = CountVectorizer(vocabulary=voc)
+    X_bow = vectorizer.transform(X)
+    df_bow = pd.DataFrame(X_bow.toarray(), columns=voc)
+    df_bow['y'] = y
+    print(df_bow)
 
 main()
