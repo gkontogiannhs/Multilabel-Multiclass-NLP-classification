@@ -72,15 +72,13 @@ def read_data(fn1 , fn2, docs=None):
 
 
 def main():
-
+   
     X, y = read_data('Data/test-data.dat', 'Data/test-label.dat', 10)
     voc = [str(i) for i in range(8520)]
-
     # create vectorizer and pass existed corpus
     vectorizer = CountVectorizer(vocabulary=voc)
     X_bow = vectorizer.transform(X)
     df_bow = pd.DataFrame(X_bow.toarray(), columns=voc)
     df_bow['y'] = y
-    print(df_bow)
-
+    
 main()
