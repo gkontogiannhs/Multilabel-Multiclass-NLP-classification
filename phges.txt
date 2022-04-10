@@ -1,1 +1,3 @@
 https://www.geeksforgeeks.org/normalization-vs-standardization/
+https://machinelearningmastery.com/multi-label-classification-with-deep-learning/
+https://towardsdatascience.com/how-to-choose-the-right-activation-function-for-neural-networks-3941ff0e6f9c
