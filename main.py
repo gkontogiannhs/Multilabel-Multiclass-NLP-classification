@@ -5,11 +5,17 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.model_selection import KFold
 import numpy as np
 import keras
+from keras.models import Sequential
+from keras.layers import Flatten, Dense, Embedding
 import matplotlib.pyplot  as plt
-from sklearn.metrics import accuracy_score
-from numpy import mean
-from numpy import std
 
+# plot loss during training
+def plot(h):
+    plt.title('Loss / Mean Squared Error')
+    plt.plot(h.history['loss'], label='train')
+    plt.plot(h.history['val_loss'], label='test')
+    plt.legend()
+    plt.show()
 
 def read_file(filename):
     arr = []
@@ -66,57 +72,76 @@ def read_data(fn1 , fn2, docs=None):
 
                 words.clear()
 
-                # cnt += 1
-                # if cnt >= docs:
-                #    return X, y
+                cnt += 1
+                if cnt >= docs:
+                    return X, y
                     
     except FileNotFoundError:
         raise "Count not read file"
 
+    # plot loss during training
+        def plot():
+            plt.title('Loss / Mean Squared Error')
+            plt.plot(h.history['loss'], label='train')
+            plt.plot(h.history['val_loss'], label='test')
+            plt.legend()
+            plt.show()
+
+    # plot loss during training
+        def plot():
+            plt.title('Loss / Mean Squared Error')
+            plt.plot(h.history['loss'], label='train')
+            plt.plot(h.history['val_loss'], label='test')
+            plt.legend()
+            plt.show()
+
 
 def main():
-   
-    X, y = read_data('Data/train-data.dat', 'Data/train-label.dat', 5000)
+    
+    # load data
+    X, y = read_data('Data/train-data.dat', 'Data/train-label.dat', 8000)
 
+    # create corpus
     voc = [str(i) for i in range(8520)]
 
-    # create vectorizer and pass existed corpus
-    vectorizer = CountVectorizer(vocabulary=voc)
-
     # tranform X, y to numpy arrays
-    X = vectorizer.transform(X).toarray()
+    X = CountVectorizer(vocabulary=voc).transform(X).toarray()
     y = np.asarray(y, dtype=int)
-
-    ################ NORMALIZATION ########################################
     
+    ################ NORMALIZATION ########################################
     # X = MinMaxScaler().fit_transform(X)
 
     ################ STANDARDIZATION ########################################
     # X = StandardScaler().fit_transform(X)
-
-     # neural network's dims
+   
+    # model's dims
     input_dims, out_dims = X.shape[1], y.shape[1]
-    hidden_dims = 20
+    hidden_dims = 8540
     results = []
 
     # Split the data to training and testing data 5-Fold
-    kfold = KFold(n_splits=2, shuffle=True)
+    kfold = KFold(n_splits=5, shuffle=True)
     for i, (train, test) in enumerate(kfold.split(X)):
-        
+       
         # create model
-        model = keras.Sequential([
-            keras.layers.Dense(hidden_dims, input_shape=(input_dims,), activation='relu'),
-            keras.layers.Dense(out_dims, activation='sigmoid')
+        model = Sequential([
+            Dense(hidden_dims, input_dim=input_dims, activation='relu'),
+            Dense(out_dims, activation='sigmoid')
         ])
 
-        keras.optimizers.SGD(learning_rate=0.001)
-        model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['mse', 'accuracy'])
+        loss_fn = keras.losses.CategoricalCrossentropy()
+        opt = keras.optimizers.SGD(learning_rate=1e-3)
+        model.compile(loss=loss_fn, optimizer=opt, metrics=['accuracy'])
 
         # Fit model
-        model.fit(X[train], y[train], epochs=30, batch_size=10)
+        h = model.fit(X[train], y[train], epochs=50, batch_size=64, verbose=1)
 
-        #evalute model
-        print(i, model.evaluate(X[test], y[test]))
+        # evaluate the model
+        test_mse = model.evaluate(X[test], y[test], verbose=0)
+        print('Test: %.3f' % test_mse[0])
 
+        results.append(test_mse[0])
+
+        print("Fold :", i, " RMSE:", test_mse[0])
     
 main()
