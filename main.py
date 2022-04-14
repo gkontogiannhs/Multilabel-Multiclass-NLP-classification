@@ -122,6 +122,34 @@ def get_model(n_inputs, n_outputs, n_hidden, loss_f):
     model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5)])
     return model
 
+def evaluate_model(X, y):
+    history = []
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Split the data to training and testing data 5-Fold
+    kfold = KFold(n_splits=5, shuffle=True)
+    for i, (train, test) in enumerate(kfold.split(X_train)):
+        # create model
+        model = get_model(X.shape[1], y.shape[1], 20, 'binary_crossentropy')
+   
+        # Fit model
+        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, batch_size=128, verbose=1)
+        history.append(h.history)
+
+        # evaluate model
+        model.evaluate(X_train[test], y_train[test])
+
+        plot(h, 'CE')
+        
+        # make predict to unseen data
+        yhat = model.predict(X_test)    
+        yhat = yhat.round()
+       
+		# calculate accuracy
+        acc = accuracy_score(y_test, yhat)
+
+		# store result
+        print('>%.3f' % acc)
+
 def main():
     # load data
     X, y = read_data('Data/train-data.dat', 'Data/train-label.dat', 8250)
@@ -133,34 +161,17 @@ def main():
     X = CountVectorizer(vocabulary=voc).transform(X).toarray()
     y = np.asarray(y, dtype=int)
 
-    
     ################ CENTERING  ##########################################
-
+    # row_means = np.mean(X, axis=1)
+    # X = np.subtract(X, row_means.reshape((row_means.shape[0], 1)))
+    
     ################ NORMALIZATION ########################################
     X = MinMaxScaler().fit_transform(X)
 
     ################ STANDARDIZATION ########################################
     # X = StandardScaler().fit_transform(X)
 
-    input("Tsekares ta labels twn graphs?")
-    input("tsekares to loss?")
-
-    history = []
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    # Split the data to training and testing data 5-Fold
-    kfold = KFold(n_splits=5, shuffle=True)
-    for i, (train, test) in enumerate(kfold.split(X_train)):
-        # create model
-        model = get_model(X.shape[1], y.shape[1], 4270, 'binary_crossentropy')
-   
-        # Fit model
-        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=50, batch_size=128, verbose=1)
-        history.append(h.history)
-
-        # evaluate model
-        model.evaluate(X_train[test], y_train[test])
-
-        plot(h, 'CE')
+    evaluate_model(X, y)
 
 
 main()
