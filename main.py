@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
 import numpy as np
 from tensorflow import keras
+from keras import backend as K
 import matplotlib.pyplot  as plt
 from sklearn.metrics import accuracy_score
 
@@ -26,13 +27,6 @@ def plot(h, label):
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
     plt.show()
-
-def myLoss(y_true, y_pred):
-    error = 0
-    for p, q in zip(y_true, y_pred):
-        if np.logical_or(p, q):
-            error += np.divide(np.logical_and(p, q), np.logical_or(p, q))
-    return error/len(y_true)
 
 def read_file(filename):
     arr = []
@@ -96,22 +90,6 @@ def read_data(fn1 , fn2, docs=None):
     except FileNotFoundError:
         raise "Count not read file"
 
-    # plot loss during training
-        def plot():
-            plt.title('Loss / Mean Squared Error')
-            plt.plot(h.history['loss'], label='train')
-            plt.plot(h.history['val_loss'], label='test')
-            plt.legend()
-            plt.show()
-
-    # plot loss during training
-        def plot():
-            plt.title('Loss / Mean Squared Error')
-            plt.plot(h.history['loss'], label='train')
-            plt.plot(h.history['val_loss'], label='test')
-            plt.legend()
-            plt.show()
-
 # get the model
 def get_model(n_inputs, n_outputs, n_hidden, loss_f):
     model = keras.models.Sequential()
@@ -132,13 +110,13 @@ def evaluate_model(X, y):
         model = get_model(X.shape[1], y.shape[1], 20, 'binary_crossentropy')
    
         # Fit model
-        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, batch_size=128, verbose=1)
+        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=800, batch_size=128, verbose=0)
         history.append(h.history)
 
         # evaluate model
         model.evaluate(X_train[test], y_train[test])
 
-        plot(h, 'CE')
+        plot(h, 'MSE')
         
         # make predict to unseen data
         yhat = model.predict(X_test)    
