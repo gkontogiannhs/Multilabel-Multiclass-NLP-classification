@@ -1,4 +1,3 @@
-from gc import callbacks
 import re
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -99,7 +98,7 @@ def get_model(n_inputs, n_outputs, loss_f, n_hidden1, n_hidden2=None):
     if n_hidden2:
         model.add(keras.layers.Dense(n_hidden2, activation='relu'))
     model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
-    opt = keras.optimizers.SGD(learning_rate=1e-3)
+    opt = keras.optimizers.SGD(learning_rate=0.01, momentum=0.6)
     model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5)])
     return model
 
@@ -111,16 +110,16 @@ def evaluate_model(X, y):
     kfold = KFold(n_splits=5, shuffle=True)
     for i, (train, test) in enumerate(kfold.split(X_train)):
         # create model
-        model = get_model(X.shape[1], y.shape[1], 'binary_crossentropy', 20)
+        model = get_model(X.shape[1], y.shape[1], 'mean_squared_error', 20)
    
         # Fit model
-        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=500, callbacks=[es], verbose=1)
+        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, callbacks=[], verbose=1)
         history.append(h.history)
 
         # evaluate model
         model.evaluate(X_train[test], y_train[test])
 
-        plot(h, 'CE')
+        plot(h, 'MSE')
         
         # make predict to unseen data
         yhat = model.predict(X_test)    
