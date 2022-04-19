@@ -10,9 +10,9 @@ import matplotlib.pyplot  as plt
 from sklearn.metrics import accuracy_score
 
 # plot loss during training
-def plot(h, label):
-    plt.plot(h.history['binary_accuracy'])
-    plt.plot(h.history['val_binary_accuracy'])
+def plot(train_acc, test_acc, train_loss, test_loss, label):
+    plt.plot(train_acc)
+    plt.plot(test_acc)
     plt.title(label + ' - Accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
@@ -20,8 +20,8 @@ def plot(h, label):
     plt.show()
 
     # summarize history for loss
-    plt.plot(h.history['loss'])
-    plt.plot(h.history['val_loss'])
+    plt.plot(train_loss)
+    plt.plot(test_loss)
     plt.title(label + ' - Loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
@@ -91,45 +91,88 @@ def read_data(fn1 , fn2, docs=None):
         raise "Count not read file"
 
 # get the model
-def get_model(n_inputs, n_outputs, loss_f, n_hidden1, n_hidden2=None):
+def get_model(n_inputs, n_outputs, loss_f, n_hidden1, n_hidden2, lr, m, wd):
     model = keras.models.Sequential()
     model.add(keras.Input(shape=(n_inputs,)))
-    model.add(keras.layers.Dense(n_hidden1, activation='relu'))
-    if n_hidden2:
-        model.add(keras.layers.Dense(n_hidden2, activation='relu'))
+    model.add(keras.layers.Dense(n_hidden1, activation='relu', kernel_regularizer=keras.regularizers.L2(wd)))
+    model.add(keras.layers.Dense(n_hidden2, activation='relu', kernel_regularizer=keras.regularizers.L2(wd)))
     model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
-    opt = keras.optimizers.SGD(learning_rate=0.01, momentum=0.6)
-    model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5), 'acc'])
+
+    opt = keras.optimizers.SGD(learning_rate=lr, momentum=m)
+    model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5)])
+
     return model
 
 def evaluate_model(X, y):
-    history = []
+    scores = []
+    train_acc, test_acc, train_loss, test_loss = [], [], [], []
+
     es = keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=20)
+
+    # train - test data split 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
     # Split the data to training and testing data 5-Fold
     kfold = KFold(n_splits=5, shuffle=True)
     for i, (train, test) in enumerate(kfold.split(X_train)):
+
         # create model
-        model = get_model(X.shape[1], y.shape[1], 'binary_crossentropy', 4270)
+        # input-demensions, output-dims, loss-function, hidden1, hidden2, learning-rate, momentum, weight-decay
+        model = get_model(X.shape[1], y.shape[1], 'binary_crossentropy', 20, 20, 0.01, 0.6, 0.1)
    
         # Fit model
-        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, batch_size=64, callbacks=[es], verbose=1)
-        history.append(h.history)
+        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, batch_size=64, callbacks=[es], verbose=0)
 
-        # evaluate model
-        model.evaluate(X_train[test], y_train[test])
+        # store for each fold the history
+        train_acc.append(h.history['binary_accuracy'])
+        test_acc.append(h.history['val_binary_accuracy'])
+        train_loss.append(h.history['loss'])
+        test_loss.append(h.history['val_loss'])
 
-        plot(h, 'CE')
+        # evaluate model and store
+        scores.append(model.evaluate(X_train[test], y_train[test], verbose=0)[1])
+        print(f'Fold {i}:  {scores[i]}')
+
+    # average folds
+    train_acc = np.average(train_acc, axis=0)
+    test_acc = np.average(test_acc, axis=0)
+    train_loss = np.average(train_loss, axis=0)
+    test_loss = np.average(test_loss, axis=0)
+
+    plot(train_acc, test_acc, train_loss, test_loss, 'CE')
         
-        # make predict to unseen data
-        yhat = model.predict(X_test)    
-        yhat = yhat.round()
-       
-		# calculate accuracy
-        acc = accuracy_score(y_test, yhat)
+    # make predict to unseen data
+    yhat = model.predict(X_test)    
+    yhat = yhat.round()
+    
+    # calculate and return accuracy
+    return accuracy_score(y_test, yhat)
 
-		# store result
-        print('>%.3f' % acc)
+
+def plot_regularizer(X, y):
+    values = [1e-3, 1e-2, 1e-1, 5e-1, 9e-1]
+    all_train, all_test = list(), list()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    es = keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=20)
+    # Split the data to training and testing data 5-Fold
+    for param in values:
+        # define model
+        model = get_model(X.shape[1], y.shape[1], 'binary_crossentropy', 20, 20, param)
+        # fit model
+        model.fit(X_train, y_train, epochs=200, batch_size=64, verbose=1)
+        # evaluate the model
+        train_acc = model.evaluate(X_train, y_train, verbose=1)
+        test_acc = model.evaluate(X_test, y_test, verbose=1)
+        print('Param: %f, Train: %.3f, Test: %.3f' % (param, train_acc[1], test_acc[1]))
+        all_train.append(train_acc[1])
+        all_test.append(test_acc[1])
+
+    # plot train and test means
+    plt.semilogx(values, all_train, label='train', marker='o')
+    plt.semilogx(values, all_test, label='test', marker='o')
+    plt.legend()
+    plt.show()
+
 
 def main():
     # load data
@@ -153,6 +196,5 @@ def main():
     # X = StandardScaler().fit_transform(X)
 
     evaluate_model(X, y)
-
 
 main()
