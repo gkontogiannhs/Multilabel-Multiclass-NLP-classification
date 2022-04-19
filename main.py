@@ -90,7 +90,6 @@ def read_data(fn1 , fn2, docs=None):
     except FileNotFoundError:
         raise "Count not read file"
 
-# get the model
 def get_model(n_inputs, n_outputs, loss_f, n_hidden1, n_hidden2, lr, m, wd):
     model = keras.models.Sequential()
     model.add(keras.Input(shape=(n_inputs,)))
@@ -121,7 +120,7 @@ def evaluate_model(X, y):
         model = get_model(X.shape[1], y.shape[1], 'binary_crossentropy', 20, 20, 0.01, 0.6, 0.1)
    
         # Fit model
-        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, batch_size=64, callbacks=[es], verbose=0)
+        h = model.fit(X_train[train], y_train[train], validation_data=(X_train[test], y_train[test]), epochs=150, batch_size=64, callbacks=[], verbose=0)
 
         # store for each fold the history
         train_acc.append(h.history['binary_accuracy'])
@@ -132,6 +131,23 @@ def evaluate_model(X, y):
         # evaluate model and store
         scores.append(model.evaluate(X_train[test], y_train[test], verbose=0)[1])
         print(f'Fold {i}:  {scores[i]}')
+
+
+    # find max dim
+    max_dim = len(train_acc)
+    flag = False
+    for arr in [test_acc, train_loss, test_loss]:
+        temp = len(arr)
+        if temp > max_dim:
+            max_dim = temp
+            flag = True
+    
+    # pad arrays with last item in case early stopping took place
+    if flag:
+        train_acc = np.append(train_acc, [train_acc[-1] for _ in range(max_dim-len(train_acc))])
+        test_acc = np.append(test_acc, [test_acc[-1] for _ in range(max_dim-len(test_acc))])
+        train_loss = np.append(train_loss, [train_loss[-1] for _ in range(max_dim-len(train_loss))])
+        train_acc = np.append(test_loss, [test_loss[-1] for _ in range(max_dim-len(test_loss))])
 
     # average folds
     train_acc = np.average(train_acc, axis=0)
@@ -146,8 +162,7 @@ def evaluate_model(X, y):
     yhat = yhat.round()
     
     # calculate and return accuracy
-    return accuracy_score(y_test, yhat)
-
+    print(accuracy_score(y_test, yhat))
 
 def plot_regularizer(X, y):
     values = [1e-3, 1e-2, 1e-1, 5e-1, 9e-1]
