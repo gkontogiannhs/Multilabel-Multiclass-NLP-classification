@@ -219,8 +219,8 @@ def evaluate_embeddings(X, y):
 def main():
 
     # load data
-    X, y = read_data('Data/train-data.dat', 'Data/train-label.dat', 8250)
-    y = np.asarray(y, dtype=int)
+    X_raw, y_raw = read_data('Data/train-data.dat', 'Data/train-label.dat', 8250)
+    y = np.asarray(y_raw, dtype=int)
 
     # get choice for model
     print('1. BoW\n2. Word Embeddings\n3. LSTM')
@@ -231,14 +231,14 @@ def main():
         voc = [str(i) for i in range(8520)]
 
         # tranform X, y to numpy arrays
-        X = CountVectorizer(vocabulary=voc).transform(X).toarray()
+        X_bow = CountVectorizer(vocabulary=voc).transform(X_raw).toarray()
 
         ################ CENTERING  ##########################################
         # row_means = np.mean(X, axis=1)
         # X = np.subtract(X, row_means.reshape((row_means.shape[0], 1)))
         
         ################ NORMALIZATION ########################################
-        X = MinMaxScaler().fit_transform(X)
+        X = MinMaxScaler().fit_transform(X_bow)
 
         ################ STANDARDIZATION ########################################
         # X = StandardScaler().fit_transform(X)
@@ -246,7 +246,7 @@ def main():
         evaluate_model(X, y)
 
     elif choice == 2:
-        evaluate_embeddings(X, y)
+        evaluate_embeddings(X_raw, y)
 
     elif choice == 3:
         pass
