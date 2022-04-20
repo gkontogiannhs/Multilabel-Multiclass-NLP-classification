@@ -7,8 +7,12 @@ import numpy as np
 from tensorflow import keras
 from keras import backend as K
 import matplotlib.pyplot  as plt
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report
 
+
+def rmse(y_true, y_pred):
+    return K.sqrt(K.mean(K.square(y_pred - y_true)))
+    
 # plot loss during training
 def plot(train_acc, test_acc, train_loss, test_loss, label):
     plt.plot(train_acc)
@@ -98,7 +102,7 @@ def get_model(n_inputs, n_outputs, loss_f, n_hidden1, n_hidden2, lr, m, wd):
     model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
 
     opt = keras.optimizers.SGD(learning_rate=lr, momentum=m)
-    model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5)])
+    model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5), rmse])
 
     return model
 
@@ -112,7 +116,7 @@ def evaluate_model(X, y):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Split the data to training and testing data 5-Fold
-    kfold = KFold(n_splits=5, shuffle=True)
+    kfold = KFold(n_splits=2, shuffle=True)
     for i, (train, test) in enumerate(kfold.split(X_train)):
 
         # create model
@@ -132,37 +136,20 @@ def evaluate_model(X, y):
         scores.append(model.evaluate(X_train[test], y_train[test], verbose=0)[1])
         print(f'Fold {i}:  {scores[i]}')
 
-
-    # find max dim
-    max_dim = len(train_acc)
-    flag = False
-    for arr in [test_acc, train_loss, test_loss]:
-        temp = len(arr)
-        if temp > max_dim:
-            max_dim = temp
-            flag = True
-    
-    # pad arrays with last item in case early stopping took place
-    if flag:
-        train_acc = np.append(train_acc, [train_acc[-1] for _ in range(max_dim-len(train_acc))])
-        test_acc = np.append(test_acc, [test_acc[-1] for _ in range(max_dim-len(test_acc))])
-        train_loss = np.append(train_loss, [train_loss[-1] for _ in range(max_dim-len(train_loss))])
-        train_acc = np.append(test_loss, [test_loss[-1] for _ in range(max_dim-len(test_loss))])
-
     # average folds
     train_acc = np.average(train_acc, axis=0)
     test_acc = np.average(test_acc, axis=0)
     train_loss = np.average(train_loss, axis=0)
     test_loss = np.average(test_loss, axis=0)
-
+    
+    # plot averaged folds
     plot(train_acc, test_acc, train_loss, test_loss, 'CE')
         
     # make predict to unseen data
     yhat = model.predict(X_test)    
     yhat = yhat.round()
-    
-    # calculate and return accuracy
-    print(accuracy_score(y_test, yhat))
+
+    print(classification_report(y_test, yhat))
 
 def plot_regularizer(X, y):
     values = [1e-3, 1e-2, 1e-1, 5e-1, 9e-1]
@@ -188,28 +175,81 @@ def plot_regularizer(X, y):
     plt.legend()
     plt.show()
 
+def get_model_embeddings(voc_size, n_inputs, n_outputs, loss_f, n_hidden1):
+        model = keras.models.Sequential()
+        model.add(keras.layers.Embedding(voc_size, 64, input_length=n_inputs, name='embedding'))
+        model.add(keras.layers.Flatten())
+        model.add(keras.layers.Dense(n_hidden1, activation='relu'))
+        model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
+        
+        opt = keras.optimizers.SGD(learning_rate=1e-2)
+        model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5), rmse])
+        
+        return model
+
+def evaluate_embeddings(X, y):
+
+    # convert docs to one_hot
+    encoded_docs = [doc.split(' ') for doc in X]
+
+    # maximum doc length is going to form the input size of NN
+    max_len = len(max(encoded_docs, key=len))
+
+    # vocabulary size
+    vocab_size = 8520
+
+    # padd encoded docs to match max length
+    padded_docs = keras.preprocessing.sequence.pad_sequences(encoded_docs, maxlen=max_len, padding='post')
+
+    # get model
+    model = get_model_embeddings(vocab_size, max_len, 20, 'binary_crossentropy', 20)
+
+    # split data
+    X_train, X_test, y_train, y_test = train_test_split(padded_docs, y, test_size=0.2, random_state=42)
+
+    # fit
+    h = model.fit(X_train, y_train, validation_split=0.33, epochs=150, verbose=1)
+
+    # evaluate with unseen data
+    print(model.evaluate(X_test, y_test))
+
+    plot(h.history['binary_accuracy'], h.history['val_binary_accuracy'], h.history['loss'], h.history['val_loss'], 'CE')
+
 
 def main():
+
     # load data
     X, y = read_data('Data/train-data.dat', 'Data/train-label.dat', 8250)
-
-    # create corpus
-    voc = [str(i) for i in range(8520)]
-
-    # tranform X, y to numpy arrays
-    X = CountVectorizer(vocabulary=voc).transform(X).toarray()
     y = np.asarray(y, dtype=int)
 
-    ################ CENTERING  ##########################################
-    # row_means = np.mean(X, axis=1)
-    # X = np.subtract(X, row_means.reshape((row_means.shape[0], 1)))
-    
-    ################ NORMALIZATION ########################################
-    X = MinMaxScaler().fit_transform(X)
+    # get choice for model
+    print('1. BoW\n2. Word Embeddings\n3. LSTM')
+    choice = int(input('Choice: '))
 
-    ################ STANDARDIZATION ########################################
-    # X = StandardScaler().fit_transform(X)
+    if choice == 1:
+        # create corpus 
+        voc = [str(i) for i in range(8520)]
 
-    evaluate_model(X, y)
+        # tranform X, y to numpy arrays
+        X = CountVectorizer(vocabulary=voc).transform(X).toarray()
+
+        ################ CENTERING  ##########################################
+        # row_means = np.mean(X, axis=1)
+        # X = np.subtract(X, row_means.reshape((row_means.shape[0], 1)))
+        
+        ################ NORMALIZATION ########################################
+        X = MinMaxScaler().fit_transform(X)
+
+        ################ STANDARDIZATION ########################################
+        # X = StandardScaler().fit_transform(X)
+
+        evaluate_model(X, y)
+
+    elif choice == 2:
+        evaluate_embeddings(X, y)
+
+    elif choice == 3:
+        pass
+
 
 main()
