@@ -1,7 +1,0 @@
-https://www.geeksforgeeks.org/normalization-vs-standardization/
-https://machinelearningmastery.com/multi-label-classification-with-deep-learning/
-https://towardsdatascience.com/how-to-choose-the-right-activation-function-for-neural-networks-3941ff0e6f9c
-https://machinelearningmastery.com/learning-curves-for-diagnosing-machine-learning-model-performance/
-https://machinelearningmastery.com/how-to-stop-training-deep-neural-networks-at-the-right-time-using-early-stopping/
-https://machinelearningmastery.com/weight-regularization-to-reduce-overfitting-of-deep-learning-models/
-https://stackoverflow.com/questions/37232782/nan-loss-when-training-regression-network
