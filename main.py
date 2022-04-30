@@ -13,7 +13,6 @@ from sklearn.metrics import classification_report
 def rmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
     
-# plot loss during training
 def plot(train_acc, test_acc, train_loss, test_loss, label):
     plt.plot(train_acc)
     plt.plot(test_acc)
@@ -46,8 +45,6 @@ def read_file(filename):
     return arr
 
 def read_data(fn1 , fn2, docs=None):
-
-    # labels = read_file('Data/labels.txt')
     
     try:
         with open(fn1) as fd, open(fn2) as fl:
@@ -102,7 +99,7 @@ def get_model(n_inputs, n_outputs, loss_f, n_hidden1, n_hidden2, lr, m, wd):
     model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
 
     opt = keras.optimizers.SGD(learning_rate=lr, momentum=m)
-    model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5), rmse])
+    model.compile(optimizer=opt, loss=loss_f, metrics=['acc', keras.metrics.BinaryAccuracy(threshold=0.5), rmse])
 
     return model
 
@@ -153,7 +150,7 @@ def evaluate_model(X, y):
 
 def plot_regularizer(X, y):
     values = [1e-3, 1e-2, 1e-1, 5e-1, 9e-1]
-    all_train, all_test = list(), list()
+    all_train, all_test = [], []
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     es = keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=20)
     # Split the data to training and testing data 5-Fold
@@ -177,17 +174,27 @@ def plot_regularizer(X, y):
 
 def get_model_embeddings(voc_size, n_inputs, n_outputs, loss_f, n_hidden1):
         model = keras.models.Sequential()
-        model.add(keras.layers.Embedding(voc_size, 64, input_length=n_inputs, name='embedding'))
+        model.add(keras.layers.Embedding(voc_size, 32, input_length=n_inputs, name='embedding'))
         model.add(keras.layers.Flatten())
         model.add(keras.layers.Dense(n_hidden1, activation='relu'))
         model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
-        
         opt = keras.optimizers.SGD(learning_rate=1e-2)
-        model.compile(optimizer=opt, loss=loss_f, metrics=[keras.metrics.BinaryAccuracy(threshold=0.5), rmse])
+        model.compile(optimizer=opt, loss=loss_f, metrics=['acc', keras.metrics.BinaryAccuracy(threshold=0.5)])
         
         return model
 
-def evaluate_embeddings(X, y):
+def get_model_lstm(voc_size, n_inputs, n_outputs, lstm_units, loss_f):
+        model = keras.models.Sequential()
+        model.add(keras.layers.Embedding(voc_size, 32, input_length=n_inputs, name='embedding'))
+        model.add(keras.layers.LSTM(lstm_units, keras.layers.Dropout(0.5), input_shape=(n_inputs, 32), return_sequences=True))
+        model.add(keras.layers.LSTM(lstm_units, keras.layers.Dropout(0.5)))
+        model.add(keras.layers.Dense(n_outputs, activation='sigmoid'))
+        opt = keras.optimizers.SGD(learning_rate=1e-1)
+        model.compile(optimizer=opt, loss=loss_f, metrics=['acc', keras.metrics.BinaryAccuracy(threshold=0.5), rmse])
+        print(model.summary())
+        return model
+
+def evaluate_embeddings_lstm(X, y, both=False):
 
     # convert docs to one_hot
     encoded_docs = [doc.split(' ') for doc in X]
@@ -201,14 +208,18 @@ def evaluate_embeddings(X, y):
     # padd encoded docs to match max length
     padded_docs = keras.preprocessing.sequence.pad_sequences(encoded_docs, maxlen=max_len, padding='post')
 
-    # get model
-    model = get_model_embeddings(vocab_size, max_len, 20, 'binary_crossentropy', 20)
+    if both:
+        # get lstm_embeddings model
+        model = get_model_lstm(vocab_size, max_len, 20, 64, 'binary_crossentropy')
+    else:    
+        # get embeddings model
+        model = get_model_embeddings(vocab_size, max_len, 20, 'binary_crossentropy', 20)
 
     # split data
     X_train, X_test, y_train, y_test = train_test_split(padded_docs, y, test_size=0.2, random_state=42)
-
+    
     # fit
-    h = model.fit(X_train, y_train, validation_split=0.33, epochs=150, verbose=1)
+    h = model.fit(X_train, y_train, validation_split=0.33, epochs=50, batch_size=128, verbose=1)
 
     # evaluate with unseen data
     print(model.evaluate(X_test, y_test))
@@ -246,10 +257,10 @@ def main():
         evaluate_model(X, y)
 
     elif choice == 2:
-        evaluate_embeddings(X_raw, y)
+        evaluate_embeddings_lstm(X_raw, y)
 
     elif choice == 3:
-        pass
+        evaluate_embeddings_lstm(X_raw, y, True)
 
 
 main()
