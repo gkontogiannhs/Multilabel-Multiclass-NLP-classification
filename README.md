@@ -1,4 +1,4 @@
-## This repo hosts a project which tries to find and fine tune the most suitable neural network model for multi-label multi-class classification using NLP teqnuiches with the DeliciousMIL dataset.
+## This repo hosts a project which tries to find and fine tune the most suitable neural network model for multi-label multi-class classification using NLP techniques with the DeliciousMIL dataset.
 
 ### Builts:
 Different dimensionalities for Multi layer Dense NN with:
